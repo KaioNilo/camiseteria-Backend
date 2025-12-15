@@ -1,9 +1,9 @@
 import "dotenv/config"; 
 import express from "express";
-import connectDB from "./config/db.js";
+import connectDB from "./src/config/db.js";
 import cors from "cors";
-import SimulationRoutes from "./routes/SimulationRoutes.js";
-import ProductRoutes from "./routes/ProductRoutes.js";
+import SimulationRoutes from "./src/routes/SimulationRoutes.js";
+import ProductRoutes from "./src/routes/ProductRoutes.js";
 
 
 /// Inicializando o Express
@@ -21,6 +21,14 @@ connectDB();
 /// Middlewares globais
 app.use(express.json()); 
 app.use(cors());
+
+// ===================================================
+// 💡 AQUI É ONDE VOCÊ DEVE INSERIR A ROTA DE TESTE:
+// ===================================================
+app.get('/', (req, res) => {
+    res.status(200).send('API de Frete Online e Funcionando! Use POST /api/frete para cotar.');
+});
+// ===================================================
 
 
 // Rotas de Módulos
