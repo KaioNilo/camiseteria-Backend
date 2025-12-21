@@ -5,40 +5,49 @@ import cors from "cors";
 import SimulationRoutes from "./src/routes/SimulationRoutes.js";
 import ProductRoutes from "./src/routes/ProductRoutes.js";
 
-
-/// Inicializando o Express
+// --- INICIALIZAÇÃO ---
 const app = express();
-
-
-/// Porta configurável via .env
 const PORT = process.env.PORT || 5000;
 
-
-/// Conexão MongoDB
 connectDB();
 
+// --- MIDDLEWARES ---
+// Configuração de CORS
+const allowedOrigins = [
+  'http://localhost:5173',          
+  'http://127.0.0.1:5173',          
+  'https://seu-projeto.vercel.app'    // 🚩 SUBSTITUA PELA SUA URL DA VERCEL APÓS O DEPLOY
+];
 
-/// Middlewares globais
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      callback(new Error('Acesso negado pelo CORS: Este domínio não tem permissão.'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json()); 
-app.use(cors());
 
-// ===================================================
-// 💡 AQUI É ONDE VOCÊ DEVE INSERIR A ROTA DE TESTE:
-// ===================================================
+// --- ROTAS ---
 app.get('/', (req, res) => {
-    res.status(200).send('API de Frete Online e Funcionando! Use POST /api/frete para cotar.');
+    res.status(200).send('✅ API Oliveira Camiseteria: Online e Operante.');
 });
-// ===================================================
 
-
-// Rotas de Módulos
+// Rotas dos Módulos
 app.use("/api/produtos", ProductRoutes);
 app.use("/api/frete", SimulationRoutes);
 
-/// Iniciar servidor
-app.listen(PORT, () => {
-  console.log(`✅ Servidor rodando na porta ${PORT}`);
+// --- INICIALIZAÇÃO DO SERVIDOR ---
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Servidor rodando em: http://localhost:${PORT}`);
+  console.log(`📡 Aguardando requisições...`);
 });
 
-/// Exportando o servidor
 export default app;
