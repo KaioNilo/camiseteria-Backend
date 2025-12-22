@@ -16,7 +16,7 @@ connectDB();
 const allowedOrigins = [
   'http://localhost:5173',          
   'http://127.0.0.1:5173',          
-  'https://seu-projeto.vercel.app'    // 🚩 SUBSTITUA PELA SUA URL DA VERCEL APÓS O DEPLOY
+  'https://camiseteria-frontend-git-main-kaio-nilos-projects.vercel.app' 
 ];
 
 app.use(cors({

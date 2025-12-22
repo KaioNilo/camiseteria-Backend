@@ -4,33 +4,29 @@ import mongoose from 'mongoose';
 
 // Configurações e URLs
 const { Decimal128 } = mongoose.Types; 
-// 🚨 MUDANÇA CRÍTICA: URL DO SANDBOX
 const ME_API_URL = 'https://sandbox.melhorenvio.com.br/api/v2/me/shipment/calculate'; 
 
-// Mapeamento dos IDs do Melhor Envio (PAC=1, SEDEX=2)
+// Mapeamento IDs Melhor Envio (PAC=1, SEDEX=2)
 const SERVICE_MAP = {
     PAC: "1",
     SEDEX: "2",
 };
-const SERVICES_TO_FETCH = SERVICE_MAP.PAC + ',' + SERVICE_MAP.SEDEX; // "1,2"
+const SERVICES_TO_FETCH = SERVICE_MAP.PAC + ',' + SERVICE_MAP.SEDEX;
 
-/**
- * Simula o frete via API do Melhor Envio, verificando e atualizando o cache MongoDB.
- */
 export const simulateFreight = async (req, res) => {
-    // 1. Recebe os dados do front-end
+    // Receber dados front
     const { from, to, packages, options, selected_service } = req.body; 
     
-    // 2. Validação e Limpeza
+    // Validação e Limpeza
     const cepDestino = to?.postal_code?.replace(/(\D)/g, '') || ''; 
-    const servicoDesejado = selected_service?.toUpperCase(); // Ex: "PAC" ou "SEDEX"
+    const servicoDesejado = selected_service?.toUpperCase();
 
     if (!cepDestino || !servicoDesejado || !SERVICE_MAP[servicoDesejado] || !packages || packages.length === 0) {
         return res.status(400).json({ message: 'Dados incompletos: CEP, Serviço de envio ou Pacotes são obrigatórios.' });
     }
 
     try {
-        // 3. Verificar Cache MongoDB (Busca pelo NOME do serviço e CEP)
+        // Verificar Cache
         const cachedSimulation = await Simulation.findOne({ 
             cep: cepDestino, 
             'results.service': servicoDesejado 
@@ -48,13 +44,13 @@ export const simulateFreight = async (req, res) => {
             }
         }
 
-        // 4. Chamada API Melhor Envio (Se não encontrou no cache)
+        // Chamadar API Melhor Envio
         const payload = { 
             from, 
             to, 
             packages, 
-            options: options || { receipt: false, own_hand: false }, // Valores padrão
-            services: SERVICES_TO_FETCH, // Busca PAC e SEDEX ("1,2")
+            options: options || { receipt: false, own_hand: false }, 
+            services: SERVICES_TO_FETCH,
         };
         
         console.log(`[API] Buscando frete na API do Melhor Envio para CEP ${cepDestino}...`);
@@ -63,7 +59,6 @@ export const simulateFreight = async (req, res) => {
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
-                // O MELHOR_ENVIO_TOKEN DEVE SER O TOKEN DO SANDBOX (Veja Etapa 2)
                 'Authorization': `Bearer ${process.env.MELHOR_ENVIO_TOKEN}`, 
                 'User-Agent': 'Aplicação do Usuário (kaionilofreitas@gmail.com)' 
             }
@@ -71,7 +66,7 @@ export const simulateFreight = async (req, res) => {
 
         const resultadosME = response.data;
 
-        // 5. Tratar erros API
+        // Tratar erros API
         if (resultadosME.length === 0 || resultadosME.error || resultadosME.some(r => r.error)) {
             const mensagemErro = (resultadosME[0]?.error || resultadosME.error || "Serviço de frete não cotado para este CEP.")
                                 .replace(/\./g, ''); 
@@ -80,7 +75,7 @@ export const simulateFreight = async (req, res) => {
             return res.status(400).json({ message: mensagemErro });
         }
         
-        // 6. Formatar resultados e salvar no cache
+        // Formatar resultados e salvar no cache
         const validResults = Array.isArray(resultadosME) ? resultadosME : [];
 
         const resultsToCache = validResults
@@ -99,14 +94,14 @@ export const simulateFreight = async (req, res) => {
             return res.status(404).json({ message: `O serviço ${servicoDesejado} não está disponível para o CEP informado.` });
         }
 
-        // Salvar todos os resultados (PAC e SEDEX) no DB para cache futuro
+        // Salvar resultados no DB
         const newSimulation = new Simulation({
             cep: cepDestino,
             results: resultsToCache,
         });
         await newSimulation.save();
 
-        // 7. Retornar valor solicitado
+        // Retornar valor solicitado
         res.status(200).json({ 
             valor: freteEncontrado.price.toString(),
             delivery: freteEncontrado.delivery 
