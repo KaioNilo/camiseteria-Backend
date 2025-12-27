@@ -6,28 +6,30 @@ const { Decimal128 } = mongoose.Types;
 
 const ME_API_URL = 'https://www.melhorenvio.com.br/api/v2/me/shipment/calculate'; 
 
-// Mapeamento IDs (PAC=1, SEDEX=2)
 const SERVICE_MAP = {
     PAC: "1",
     SEDEX: "2",
 };
-const SERVICES_TO_FETCH = SERVICE_MAP.PAC + ',' + SERVICE_MAP.SEDEX;
+
+const SERVICES_TO_FETCH = "1,2";
 
 export const simulateFreight = async (req, res) => {
-    // Receber dados do frontend
+    // Captura dados frontend
     const { to, packages, selected_service } = req.body; 
     
-    // Limpeza do CEP de destino
+    // Normalização dados
     const cepDestino = to?.postal_code?.replace(/(\D)/g, '') || ''; 
-    const servicoDesejado = selected_service?.toUpperCase();
+    const servicoDesejado = selected_service?.toUpperCase() || '';
 
-    // Validação de entrada
+    // Validação antes de chamar API externa
     if (!cepDestino || !servicoDesejado || !SERVICE_MAP[servicoDesejado] || !packages || packages.length === 0) {
-        return res.status(400).json({ message: 'Dados incompletos: CEP, Serviço ou Pacotes são obrigatórios.' });
+        return res.status(400).json({ 
+            message: 'Dados insuficientes para cálculo: verifique CEP, serviço e itens no carrinho.' 
+        });
     }
 
     try {
-        // Verificar Cache MongoDB
+        // Verificação Cache
         const cachedSimulation = await Simulation.findOne({ 
             cep: cepDestino, 
             'results.service': servicoDesejado 
@@ -36,7 +38,7 @@ export const simulateFreight = async (req, res) => {
         if (cachedSimulation) {
             const cachedResult = cachedSimulation.results.find(r => r.service === servicoDesejado);
             if (cachedResult) {
-                console.log(`[CACHE] Frete recuperado para ${servicoDesejado} no CEP ${cepDestino}.`);
+                console.log(`[CACHE] Frete encontrado para ${servicoDesejado} no CEP ${cepDestino}.`);
                 return res.status(200).json({ 
                     valor: cachedResult.price.toString(),
                     delivery: cachedResult.delivery
@@ -44,21 +46,21 @@ export const simulateFreight = async (req, res) => {
             }
         }
 
-        // Preparar Payload para o Melhor Envio
+        // Preparação envio para Melhor Envio
         const payload = { 
             from: { postal_code: process.env.ORIGIN_CEP || '60191335' }, 
             to: { postal_code: cepDestino }, 
             packages: packages.map(p => ({
-                weight: p.weight || 1,
-                width: p.width || 10,
-                height: p.height || 10,
-                length: p.length || 10
+                weight: p.weight || 0.3,
+                width: p.width || 11,
+                height: p.height || 11,
+                length: p.length || 16
             })), 
             options: { receipt: false, own_hand: false }, 
             services: SERVICES_TO_FETCH,
         };
         
-        console.log(`[API] Solicitando cotação ao Melhor Envio para CEP ${cepDestino}...`);
+        console.log(`[API] Solicitando cotação para o CEP ${cepDestino}...`);
 
         const response = await axios.post(ME_API_URL, payload, {
             headers: {
@@ -71,13 +73,12 @@ export const simulateFreight = async (req, res) => {
 
         const resultadosME = response.data;
 
-        // Tratar erros API
+        // Validação resposta API externa
         if (!Array.isArray(resultadosME) || resultadosME.length === 0) {
-            console.log(`[ERRO API] Resposta vazia ou erro no formato.`);
-            return res.status(400).json({ message: "Serviço de frete indisponível para este CEP." });
+            return res.status(400).json({ message: "Nenhum serviço de entrega disponível para este CEP." });
         }
 
-        // Formatar e filtrar resultados válidos
+        // Tratamento e filtragem dados
         const resultsToCache = resultadosME
             .filter(item => item.name && item.price && !item.error)
             .map(item => ({
@@ -92,29 +93,29 @@ export const simulateFreight = async (req, res) => {
         );
 
         if (!freteEncontrado) {
-            return res.status(404).json({ message: `O serviço ${servicoDesejado} não está disponível para o CEP informado.` });
+            return res.status(404).json({ message: `O serviço ${servicoDesejado} não atende esta região no momento.` });
         }
 
-        // Salvar nova simulação
+        // Persistência MongoDB
         const newSimulation = new Simulation({
             cep: cepDestino,
             results: resultsToCache,
         });
         await newSimulation.save();
 
-        // Resposta final ao front
-        res.status(200).json({ 
+        // Retorno frontend
+        return res.status(200).json({ 
             valor: freteEncontrado.price.toString(),
             delivery: freteEncontrado.delivery 
         });
 
     } catch (error) {
         console.error("================ ERROR LOG ================");
-        console.error("Status:", error.response?.status);
-        console.error("Data:", JSON.stringify(error.response?.data));
+        console.error("Status da Falha:", error.response?.status);
+        console.error("Erro da API:", JSON.stringify(error.response?.data));
         console.error("===========================================");
         
-        const msg = error.response?.data?.message || error.response?.data?.error || 'Erro ao processar frete.';
-        res.status(error.response?.status || 500).json({ message: msg });
+        const msg = error.response?.data?.message || 'Erro ao calcular frete. Tente novamente em instantes.';
+        return res.status(error.response?.status || 500).json({ message: msg });
     }
 };
