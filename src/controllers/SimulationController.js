@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 
 // Configurações e URLs
 const { Decimal128 } = mongoose.Types; 
-const ME_API_URL = 'https://sandbox.melhorenvio.com.br/api/v2/me/shipment/calculate'; 
+const ME_API_URL = 'https://www.melhorenvio.com.br/api/v2/me/shipment/calculate'; 
 
 // Mapeamento IDs Melhor Envio (PAC=1, SEDEX=2)
 const SERVICE_MAP = {
