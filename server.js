@@ -14,8 +14,9 @@ connectDB();
 const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
-  'https://oliveiracamiseteria.vercel.app',
-  'https://camiseteria-frontend.vercel.app'
+  'https://oliveiracamiseteria.vercel.app/',
+  'https://camiseteria-frontend-git-main-kaio-nilos-projects.vercel.app/',
+  'https://camiseteria-frontend-ips5306du-kaio-nilos-projects.vercel.app/'
 ];
 
 app.use(cors({
