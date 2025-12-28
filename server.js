@@ -10,9 +10,9 @@ const PORT = process.env.PORT || 5000;
 
 connectDB();
 
-// --- CONFIGURAÇÃO DE CORS ---
+
 app.use(cors({
-  origin: true,
+  origin: true, 
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -21,8 +21,10 @@ app.use(cors({
 app.use(express.json()); 
 
 // --- ROTAS ---
-// Rota de teste (Ping)
-app.get('/api/frete/ping', (req, res) => res.json({ status: "online", message: "Rota encontrada!" }));
+app.get('/api/frete/ping', (req, res) => res.json({ 
+    status: "online", 
+    message: "O servidor está lendo o arquivo server.js da raiz!" 
+}));
 
 app.use("/api/produtos", ProductRoutes);
 app.use("/api/frete", SimulationRoutes);
