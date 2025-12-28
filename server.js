@@ -10,29 +10,9 @@ const PORT = process.env.PORT || 5000;
 
 connectDB();
 
-// --- CONFIGURAÇÃO DE CORS DINÂMICA ---
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'https://oliveiracamiseteria.vercel.app/',
-  'https://camiseteria-frontend-git-main-kaio-nilos-projects.vercel.app/',
-  'https://camiseteria-frontend-ips5306du-kaio-nilos-projects.vercel.app/'
-];
-
+// --- CONFIGURAÇÃO DE CORS ---
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    
-    const isAllowed = allowedOrigins.indexOf(origin) !== -1;
-    const isVercel = origin.endsWith('.vercel.app');
-
-    if (isAllowed || isVercel || process.env.NODE_ENV === 'development') {
-      callback(null, true);
-    } else {
-      console.log("Domínio bloqueado pelo CORS:", origin);
-      callback(new Error('Acesso negado pelo CORS: Este domínio não tem permissão.'));
-    }
-  },
+  origin: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -41,6 +21,7 @@ app.use(cors({
 app.use(express.json()); 
 
 // --- ROTAS ---
+// Rota de teste (Ping)
 app.get('/api/frete/ping', (req, res) => res.json({ status: "online", message: "Rota encontrada!" }));
 
 app.use("/api/produtos", ProductRoutes);
