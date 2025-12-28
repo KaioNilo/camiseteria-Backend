@@ -14,14 +14,11 @@ const SERVICE_MAP = {
 const SERVICES_TO_FETCH = "1,2";
 
 export const simulateFreight = async (req, res) => {
-    // Captura dados frontend
     const { to, packages, selected_service } = req.body; 
     
-    // Normalização dados
     const cepDestino = to?.postal_code?.replace(/(\D)/g, '') || ''; 
     const servicoDesejado = selected_service?.toUpperCase() || '';
 
-    // Validação antes de chamar API externa
     if (!cepDestino || !servicoDesejado || !SERVICE_MAP[servicoDesejado] || !packages || packages.length === 0) {
         return res.status(400).json({ 
             message: 'Dados insuficientes para cálculo: verifique CEP, serviço e itens no carrinho.' 
@@ -29,7 +26,6 @@ export const simulateFreight = async (req, res) => {
     }
 
     try {
-        // Verificação Cache
         const cachedSimulation = await Simulation.findOne({ 
             cep: cepDestino, 
             'results.service': servicoDesejado 
@@ -38,7 +34,6 @@ export const simulateFreight = async (req, res) => {
         if (cachedSimulation) {
             const cachedResult = cachedSimulation.results.find(r => r.service === servicoDesejado);
             if (cachedResult) {
-                console.log(`[CACHE] Frete encontrado para ${servicoDesejado} no CEP ${cepDestino}.`);
                 return res.status(200).json({ 
                     valor: cachedResult.price.toString(),
                     delivery: cachedResult.delivery
@@ -46,7 +41,6 @@ export const simulateFreight = async (req, res) => {
             }
         }
 
-        // Preparação envio para Melhor Envio
         const payload = { 
             from: { postal_code: process.env.ORIGIN_CEP || '60191335' }, 
             to: { postal_code: cepDestino }, 
@@ -60,8 +54,6 @@ export const simulateFreight = async (req, res) => {
             services: SERVICES_TO_FETCH,
         };
         
-        console.log(`[API] Solicitando cotação para o CEP ${cepDestino}...`);
-
         const response = await axios.post(ME_API_URL, payload, {
             headers: {
                 'Accept': 'application/json',
@@ -73,49 +65,38 @@ export const simulateFreight = async (req, res) => {
 
         const resultadosME = response.data;
 
-        // Validação resposta API externa
         if (!Array.isArray(resultadosME) || resultadosME.length === 0) {
-            return res.status(400).json({ message: "Nenhum serviço de entrega disponível para este CEP." });
+            return res.status(400).json({ message: "Nenhum serviço disponível." });
         }
 
-        // Tratamento e filtragem dados
         const resultsToCache = resultadosME
             .filter(item => item.name && item.price && !item.error)
             .map(item => ({
                 service: item.name.toUpperCase(), 
                 price: Decimal128.fromString(String(item.price).replace(',', '.')), 
-                delivery: item.delivery_range ? `${item.delivery_range.max} dias` : 
-                          (item.delivery_time ? `${item.delivery_time} dias` : 'Prazo sob consulta')
+                delivery: item.delivery_range ? `${item.delivery_range.max} dias` : 'Prazo sob consulta'
             }));
 
-        const freteEncontrado = resultsToCache.find(item => 
-            item.service.includes(servicoDesejado)
-        );
+        const freteEncontrado = resultsToCache.find(item => item.service.includes(servicoDesejado));
 
         if (!freteEncontrado) {
-            return res.status(404).json({ message: `O serviço ${servicoDesejado} não atende esta região no momento.` });
+            return res.status(404).json({ message: `Serviço ${servicoDesejado} indisponível.` });
         }
 
-        // Persistência MongoDB
         const newSimulation = new Simulation({
             cep: cepDestino,
             results: resultsToCache,
         });
         await newSimulation.save();
 
-        // Retorno frontend
         return res.status(200).json({ 
             valor: freteEncontrado.price.toString(),
             delivery: freteEncontrado.delivery 
         });
 
     } catch (error) {
-        console.error("================ ERROR LOG ================");
-        console.error("Status da Falha:", error.response?.status);
-        console.error("Erro da API:", JSON.stringify(error.response?.data));
-        console.error("===========================================");
-        
-        const msg = error.response?.data?.message || 'Erro ao calcular frete. Tente novamente em instantes.';
-        return res.status(error.response?.status || 500).json({ message: msg });
+        return res.status(error.response?.status || 500).json({ 
+            message: error.response?.data?.message || 'Erro ao calcular frete.' 
+        });
     }
 };
