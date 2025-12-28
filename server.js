@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 5000;
 
 connectDB();
 
-// --- CONFIGURAÇÃO DE CORS ---
+// --- CONFIGURAÇÃO CORS ---
 const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
@@ -23,7 +23,6 @@ app.use(cors({
     if (!origin) return callback(null, true);
     
     const isAllowed = allowedOrigins.indexOf(origin) !== -1;
-    
     const isVercel = origin.endsWith('.vercel.app');
 
     if (isAllowed || isVercel || process.env.NODE_ENV === 'development') {
@@ -40,12 +39,17 @@ app.use(cors({
 
 app.use(express.json()); 
 
-// --- ROTAS ---
+// --- ROTAS DE TESTE ---
+app.get('/api/frete/ping', (req, res) => {
+    res.status(200).json({ message: "O servidor está ouvindo esta rota!" });
+});
+
+// --- ROTAS OFICIAIS ---
 app.use("/api/produtos", ProductRoutes);
 app.use("/api/frete", SimulationRoutes);
 
 app.get('/', (req, res) => {
-    res.status(200).send('✅ API Oliveira Camiseteria: Online e Operante.');
+    res.status(200).send('✅ API Oliveira Camiseteria: Online');
 });
 
 // --- INICIALIZAÇÃO ---
