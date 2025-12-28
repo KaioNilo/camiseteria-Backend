@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 5000;
 
 connectDB();
 
-// --- CONFIGURAÇÃO CORS ---
+// --- CONFIGURAÇÃO DE CORS DINÂMICA ---
 const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
@@ -39,12 +39,9 @@ app.use(cors({
 
 app.use(express.json()); 
 
-// --- ROTAS DE TESTE ---
-app.get('/api/frete/ping', (req, res) => {
-    res.status(200).json({ message: "O servidor está ouvindo esta rota!" });
-});
+// --- ROTAS ---
+app.get('/api/frete/ping', (req, res) => res.json({ status: "online", message: "Rota encontrada!" }));
 
-// --- ROTAS OFICIAIS ---
 app.use("/api/produtos", ProductRoutes);
 app.use("/api/frete", SimulationRoutes);
 
@@ -52,9 +49,6 @@ app.get('/', (req, res) => {
     res.status(200).send('✅ API Oliveira Camiseteria: Online');
 });
 
-// --- INICIALIZAÇÃO ---
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor rodando na porta: ${PORT}`);
 });
-
-export default app;
