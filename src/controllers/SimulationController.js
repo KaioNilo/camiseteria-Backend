@@ -25,7 +25,7 @@ export const simulateFreight = async (req, res) => {
             return res.status(400).json({ message: 'Dados insuficientes.' });
         }
 
-        // Chamada ao Melhor Envio
+        // Chamar API Melhor Envio
         console.log("🌐 [LOG] Chamando API do Melhor Envio...");
         const response = await axios.post(ME_API_URL, {
             from: { postal_code: "60191335" },
@@ -50,21 +50,24 @@ export const simulateFreight = async (req, res) => {
 
         const resultadosME = response.data;
 
-        // Processar e filtrar
+        // Filtramos e salvar APENAS PAC ou SEDEX
         const resultsToSave = resultadosME
-            .filter(item => item.name && item.price && !item.error)
+            .filter(item => {
+                const nome = item.name?.toUpperCase() || '';
+                return (nome.includes('PAC') || nome.includes('SEDEX')) && !item.error;
+            })
             .map(item => ({
-                service: item.name.toUpperCase(), 
+                service: item.name.toUpperCase().includes('SEDEX') ? 'SEDEX' : 'PAC', 
                 price: Decimal128.fromString(String(item.price).replace(',', '.')), 
                 delivery: item.delivery_range ? Number(item.delivery_range.max) : 0
             }));
 
-        const freteEncontrado = resultsToSave.find(item => 
-            item.service.includes(servicoDesejado)
-        );
+        // Procurar serviço específico solicitado
+        const freteEncontrado = resultsToSave.find(item => item.service === servicoDesejado);
 
         if (!freteEncontrado) {
-            return res.status(404).json({ message: `Serviço ${servicoDesejado} indisponível.` });
+            console.log(`⚠️ [LOG] O serviço ${servicoDesejado} não foi retornado pelo Melhor Envio.`);
+            return res.status(404).json({ message: `Serviço ${servicoDesejado} indisponível para este CEP.` });
         }
 
         // Salvar no Banco
@@ -76,7 +79,6 @@ export const simulateFreight = async (req, res) => {
 
         console.log("✅ [LOG] Frete calculado e salvo com sucesso!");
 
-        // Retorno pro Frontend
         return res.status(200).json({ 
             valor: freteEncontrado.price.toString(),
             delivery: `${freteEncontrado.delivery} dias` 
@@ -84,6 +86,6 @@ export const simulateFreight = async (req, res) => {
 
     } catch (error) {
         console.error("🔥 [ERRO] Falha no Controller:", error.message);
-        return res.status(500).json({ message: "Erro interno ao calcular frete." });
+        return res.status(500).json({ message: "Erro interno no servidor ao processar frete." });
     }
 };
